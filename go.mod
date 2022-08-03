@@ -1,4 +1,4 @@
-module github.com/sunjayBhatia/yages
+module github.com/projectcontour/yages
 
 go 1.17
 

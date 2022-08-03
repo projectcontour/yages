@@ -41,5 +41,5 @@ dockers:
   build_flag_templates:
   - "--pull"
   image_templates:
-  - "ghcr.io/sunjaybhatia/{{ .ProjectName }}:latest"
-  - "ghcr.io/sunjaybhatia/{{ .ProjectName }}:{{ .Tag }}"
+  - "ghcr.io/projectcontour/{{ .ProjectName }}:latest"
+  - "ghcr.io/projectcontour/{{ .ProjectName }}:{{ .Tag }}"
