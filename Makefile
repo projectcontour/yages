@@ -1,22 +1,19 @@
-yages_version := 0.1.0
+.PHONY: install-tools
+install-tools:
+	./hack/install-tools.sh
 
-.PHONY: build clean container push delete destroy
+.PHONY: generate-pb-go
+generate-pb-go:
+	protoc  --proto_path=${PWD} --go-grpc_out=. --go_out=. yages-schema.proto
 
-build :
-	GOOS=linux GOARCH=amd64 go build -ldflags "-X main.release=$(yages_version)" -o ./srv-yages ./main.go
+.PHONY: build
+build:
+	goreleaser build --snapshot --rm-dist
 
-clean :
-	@rm srv-yages
+.PHONY: release
+release:
+	goreleaser release --rm-dist
 
-container :
-	@docker build --build-arg yversion=$(yages_version) -t quay.io/mhausenblas/yages:$(yages_version) .
-
-push :
-	@docker push quay.io/mhausenblas/yages:$(yages_version)
-
-deploy :
-	@kubectl create ns grpc-demo
-	@kubectl apply -f app.yaml
-
-destroy :
-	@kubectl delete ns grpc-demo
+.PHONY: clean
+clean:
+	rm -rf ${PWD}/dist

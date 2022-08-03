@@ -1,12 +1,7 @@
-FROM alpine:3.7
-ARG yversion
-LABEL version=$yversion \
-      description="YAGES gRPC server" \
-      maintainer="michael.hausenblas@gmail.com"
-COPY ./srv-yages /app/srv-yages
-WORKDIR /app
-RUN chown -R 1001:1 /app
-USER 1001
-RUN chmod +x srv-yages
-EXPOSE 9000
-CMD ["/app/srv-yages"]
+FROM alpine:latest as build
+ADD https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.11/grpc_health_probe-linux-amd64 /grpc-health-probe
+RUN chmod +x /grpc-health-probe
+FROM scratch as final
+COPY yages /
+COPY --from=build /grpc-health-probe /grpc-health-probe
+ENTRYPOINT ["/yages"]

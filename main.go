@@ -1,19 +1,15 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 	"os"
 
-	"github.com/mhausenblas/yages/yages"
-
-	"golang.org/x/net/context"
+	"github.com/sunjayBhatia/yages/yages"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
-)
-
-var (
-	release string
 )
 
 func main() {
@@ -21,45 +17,50 @@ func main() {
 	if ie := os.Getenv("YAGES_BIND"); ie != "" {
 		ipnport = ie
 	}
-	err := New(ipnport).Listen()
+
+	ln, err := net.Listen("tcp", ipnport)
 	if err != nil {
-		log.Fatalf("Failed to launch the YAGES due to %v", err)
+		log.Fatalf("Failed to listen on %s due to %v", ipnport, err)
+	}
+
+	server := grpc.NewServer()
+	yages.RegisterEchoServer(server, &EchoService{})
+	grpc_health_v1.RegisterHealthServer(server, &HealthCheckService{})
+	reflection.Register(server)
+
+	log.Printf("Starting YAGES serve on %s\n", ipnport)
+	if err := server.Serve(ln); err != nil {
+		log.Fatalf("YAGES serve failed due to %v", err)
 	}
 }
 
-// Server wraps the gRPC server and implements yages.EchoServer
-type Server struct {
-	bind string
+// HealthCheckService implements grpc_health_v1.HealthServer
+type HealthCheckService struct{}
+
+func (s *HealthCheckService) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	return &grpc_health_v1.HealthCheckResponse{
+		Status: grpc_health_v1.HealthCheckResponse_SERVING,
+	}, nil
 }
 
-// New creates a new rpc server.
-func New(bind string) *Server {
-	return &Server{bind}
+func (s *HealthCheckService) Watch(req *grpc_health_v1.HealthCheckRequest, server grpc_health_v1.Health_WatchServer) error {
+	return server.Send(&grpc_health_v1.HealthCheckResponse{
+		Status: grpc_health_v1.HealthCheckResponse_SERVING,
+	})
 }
 
-// Listen binds the server to the indicated interface:port.
-func (s *Server) Listen() error {
-	ln, err := net.Listen("tcp", s.bind)
-	if err != nil {
-		return err
-	}
-	gs := grpc.NewServer()
-	yages.RegisterEchoServer(gs, s)
-	reflection.Register(gs)
-	if release == "" {
-		release = "dev"
-	}
-	log.Printf("YAGES in version %v serving on %v is ready for gRPC clients …", release, s.bind)
-	return gs.Serve(ln)
+// EchoService implements yages.EchoServer
+type EchoService struct {
+	yages.UnimplementedEchoServer
 }
 
 // Ping returns a "pong" (constant message).
-func (s *Server) Ping(ctx context.Context, _ *yages.Empty) (*yages.Content, error) {
+func (s *EchoService) Ping(ctx context.Context, _ *yages.Empty) (*yages.Content, error) {
 	return &yages.Content{Text: "pong"}, nil
 }
 
 // Reverse returns the message it received in reverse order.
-func (s *Server) Reverse(ctx context.Context, msg *yages.Content) (*yages.Content, error) {
+func (s *EchoService) Reverse(ctx context.Context, msg *yages.Content) (*yages.Content, error) {
 	revstr := func(s string) string {
 		r := []rune(s)
 		for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
